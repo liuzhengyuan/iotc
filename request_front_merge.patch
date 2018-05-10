@@ -1,0 +1,133 @@
+
+
+diff --git a/block/elevator.c b/block/elevator.c
+index c3555c9c6..40acd0e84 100644
+--- a/block/elevator.c
++++ b/block/elevator.c
+@@ -245,6 +245,7 @@ EXPORT_SYMBOL(elevator_exit);
+ static inline void __elv_rqhash_del(struct request *rq)
+ {
+        hash_del(&rq->hash);
++       hash_del(&rq->front_hash);
+        rq->cmd_flags &= ~REQ_HASHED;
+ }
+ 
+@@ -252,6 +253,7 @@ static void elv_rqhash_del(struct request_queue *q, struct request *rq)
+ {
+        if (ELV_ON_HASH(rq))
+                __elv_rqhash_del(rq);
++
+ }
+ 
+ static void elv_rqhash_add(struct request_queue *q, struct request *rq)
+@@ -260,6 +262,7 @@ static void elv_rqhash_add(struct request_queue *q, struct request *rq)
+ 
+        BUG_ON(ELV_ON_HASH(rq));
+        hash_add(e->hash, &rq->hash, rq_hash_key(rq));
++       hash_add(e->front_hash, &rq->front_hash, blk_rq_pos(rq));
+        rq->cmd_flags |= REQ_HASHED;
+ }
+ 
+@@ -290,6 +293,28 @@ static struct request *elv_rqhash_find(struct request_queue *q, sector_t offset)
+        return NULL;
+ }
+ 
++static struct request *elv_fronthash_find(struct request_queue *q, sector_t offset)
++{
++        struct elevator_queue *e = q->elevator;
++        struct hlist_node *next;
++        struct request *rq;
++
++        hash_for_each_possible_safe(e->front_hash, rq, next, front_hash, offset) {
++                BUG_ON(!ELV_ON_HASH(rq));
++
++                if (unlikely(!rq_mergeable(rq))) {
++                        __elv_rqhash_del(rq);
++                        continue;
++                }
++
++                if (blk_rq_pos(rq) == offset)
++                        return rq;
++        }
++
++        return NULL;
++}
++
++
+ /*
+  * RB-tree support functions for inserting/lookup/removal of requests
+  * in a sorted RB tree.
+@@ -493,6 +518,39 @@ static bool elv_attempt_insert_merge(struct request_queue *q,
+ 
+        return ret;
+ }
++/*
++ * Attempt to do an insertion front merge.
++ * Returns true if we merged, false otherwise
++ */
++static bool elv_attempt_front_merge(struct request_queue *q,
++                                    struct request *rq)
++{
++       struct request *__rq;
++       bool ret;
++
++       if (blk_queue_nomerges(q))
++               return false;
++
++       /*
++        * First try one-hit cache.
++        */
++       if (q->last_merge && blk_attempt_req_merge(q, rq, q->last_merge))
++               return true;
++
++       if (blk_queue_noxmerges(q))
++               return false;
++
++       ret = false;
++       /*
++        * See if our hash lookup can find a potential frontmerge.
++        */
++
++       __rq = elv_fronthash_find(q, rq_hash_key(rq));
++       if (__rq && blk_attempt_req_merge(q, rq, __rq)) {
++               ret = true;
++       }
++       return ret;
++}
+ 
+ void elv_merged_request(struct request_queue *q, struct request *rq, int type)
+ {
+@@ -657,6 +715,8 @@ void __elv_add_request(struct request_queue *q, struct request *rq, int where)
+                 * elevator_add_req_fn.
+                 */
+                q->elevator->type->ops.elevator_add_req_fn(q, rq);
++               /* do a front merge after we added it to elevator */
++               elv_attempt_front_merge(q, rq);
+                break;
+ 
+        case ELEVATOR_INSERT_FLUSH:
+diff --git a/include/linux/blkdev.h b/include/linux/blkdev.h
+index 085a03f67..9fe25be1b 100644
+--- a/include/linux/blkdev.h
++++ b/include/linux/blkdev.h
+@@ -120,6 +120,8 @@ struct request {
+                struct list_head ipi_list;
+        };
+ 
++       struct hlist_node front_hash; /* front merge hash */
++
+        /*
+         * The rb_node is only used inside the io scheduler, requests
+         * are pruned when moved to the dispatch queue. So let the
+diff --git a/include/linux/elevator.h b/include/linux/elevator.h
+index 638b324f0..1567e5412 100644
+--- a/include/linux/elevator.h
++++ b/include/linux/elevator.h
+@@ -114,6 +114,7 @@ struct elevator_queue
+        struct mutex sysfs_lock;
+        unsigned int registered:1;
+        DECLARE_HASHTABLE(hash, ELV_HASH_BITS);
++       DECLARE_HASHTABLE(front_hash, ELV_HASH_BITS);
+ };
+ 
+ /*
