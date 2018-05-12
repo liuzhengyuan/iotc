@@ -39,7 +39,6 @@ int main(int argc, char *argv[])
 {
     int fd;
     io_context_t ctx;
-    struct timespec tms;
     struct io_event events[NUM_EVENTS];
     struct custom_iocb iocbs[NUM_EVENTS];
     struct iocb *iocbps[NUM_EVENTS];
@@ -47,18 +46,15 @@ int main(int argc, char *argv[])
     int i, j, r;
     void *buf;
 
-
-    //fd = open(TEST_FILE, O_RDWR | O_CREAT | O_DIRECT, 0644);
     fd = open(TEST_FILE, O_RDWR|__O_DIRECT);
 
-
-    if (fd == -1) {
+    if (fd <= 0) {
         perror("open");
         return 3;
     }
     
     ctx = 0;
-    if (io_setup(8192, &ctx)) {
+    if (io_setup(32, &ctx)) {
         perror("io_setup");
         return 4;
     }
@@ -67,38 +63,23 @@ int main(int argc, char *argv[])
         perror("posix_memalign");
         return 5;
     }
-    printf("buf: %p\n", buf);
 
+    /* prepare 5 bios: 8+8, 32+8, 56+8, 80+8, 104+8  */
     for (i = 0, iocbp = iocbs; i < NUM_EVENTS; ++i, ++iocbp) {
         iocbps[i] = &iocbp->iocb;
-
-/*
-	if(i == 1)
-        	io_prep_pwrite(&iocbp->iocb, fd, buf, RD_WR_SIZE, 2 * RD_WR_SIZE);
-	else if (i == 2)
-        	io_prep_pwrite(&iocbp->iocb, fd, buf, RD_WR_SIZE, 5 * RD_WR_SIZE);
-	else
-        	io_prep_pwrite(&iocbp->iocb, fd, buf, RD_WR_SIZE, 8 * RD_WR_SIZE);
-*/
-	io_prep_pwrite(&iocbp->iocb, fd, buf, RD_WR_SIZE, ((i + 1)*3 - 1) * RD_WR_SIZE);	
+	    io_prep_pwrite(&iocbp->iocb, fd, buf, RD_WR_SIZE, ((i + 1)*3 - 2) * RD_WR_SIZE);
 
         io_set_callback(&iocbp->iocb, aio_callback);
         iocbp->nth_request = i + 1;
     }
-
-usleep(100);
+	
 
     if (io_submit(ctx, NUM_EVENTS, iocbps) != NUM_EVENTS) {
         perror("io_submit");
         return 6;
     }
 
-
-    tms.tv_sec = 0;
-    tms.tv_nsec = 0;
-    //r = io_getevents(ctx, 1, NUM_EVENTS, events, &tms);
     r = io_getevents(ctx, 1, NUM_EVENTS, events, NULL);
-    printf("r=%d\n", r);
     if (r > 0) {
         for (j = 0; j < r; ++j) {
             ((io_callback_t)(events[j].data))(ctx, events[j].obj, events[j].res, events[j].res2);
