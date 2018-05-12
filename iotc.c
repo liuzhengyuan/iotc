@@ -95,7 +95,11 @@ int main(int argc, char *argv[])
             break;
        default: /* '?' */
 USAGE:
-            fprintf(stderr, "Usage: %s [-d Device] [-s | -r | -i] \n",
+            fprintf(stderr, "Usage: %s [-d Device] [-s | -r | -i] \n\n eg: iotc -d /dev/sdb -s \n\n"
+                    "-d specify a block device to submit IOS, device name must follow\n"
+                    "-s conflict with -s and -i, submit sequence IOs, such as 0+8, 8+8, 16+8\n"
+                    "-r conflict with -s and -i, submit reverse IOs, such as 16+8, 8+8, 0+8\n"
+                    "-i conflict with -s and -r, submit interleave IOs, such as 16+8, 0+8, 8+8\n",
                     argv[0]);
             return 2;
         }
@@ -103,10 +107,6 @@ USAGE:
 
     if (!hit || !dev)
         goto USAGE;
-
-    for (i = 0; i < 3; i++)
-        printf("i=%d -> %d \n ", i , io_units[io_flag][i]);
-    return 0;
 
     fd = open(dev, O_RDWR|__O_DIRECT);
 
