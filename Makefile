@@ -1,7 +1,7 @@
 ALL:
-	gcc -laio iotc.c -o iotc
-	gcc -laio pmerge_A.c -o pmerge_A
-	gcc -laio pmerge_B.c -o pmerge_B
+	gcc iotc.c -laio -o iotc
+	gcc pmerge_A.c -laio -o pmerge_A
+	gcc pmerge_B.c -laio -o pmerge_B
 
 clean:
 	rm -rf iotc pmerge_A pmerge_B
