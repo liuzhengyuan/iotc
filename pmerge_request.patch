@@ -1,0 +1,47 @@
+idiff --git a/block/blk-core.c b/block/blk-core.c
+index 806ce24..1ca8bea 100644
+--- a/block/blk-core.c
++++ b/block/blk-core.c
+@@ -3697,6 +3697,23 @@ void blk_flush_plug_list(struct blk_plug *plug, bool from_schedule)
+        q = NULL;
+        depth = 0;
+ 
++       /* 
++       * based on 4.17-rc1 
++       * hold pmerge_A's requests in plug list for 2s to wait pmerge_B's
++       * request get into its plug list too, this could avoid pmerge_B's
++       * bio get merged into pmerge_A's request.
++       */
++       if (strcmp(current->comm, "pmerge_A") == 0) {
++               spin_unlock_irq(q->queue_lock); 
++               mdelay(2000);
++               spin_lock_irq(q->queue_lock);   
++       } else if (strcmp(current->comm, "pmerge_B") == 0) {
++               spin_unlock_irq(q->queue_lock);
++               mdelay(3000);
++               spin_lock_irq(q->queue_lock);   
++       }
++
++
+        /*
+         * Save and disable interrupts here, to avoid doing it for every
+         * queue lock we have to take.
+@@ -3736,6 +3753,18 @@ void blk_flush_plug_list(struct blk_plug *plug, bool from_schedule)
+                depth++;
+        }
+ 
++       /* 
++        * after requests in plug list have added to elevator, we delay 3s to
++        * do queue_unplugged, so bios from pmerge_B could merge into pmerge_A's
++        * request lying in elevator queue.
++        */
++       if (strcmp(current->comm, "pmerge_A") == 0) {
++               spin_unlock_irq(q->queue_lock); 
++               mdelay(30000);
++               spin_lock_irq(q->queue_lock);   
++       }
++
+        /*
+         * This drops the queue lock
+         */
+
