@@ -131,7 +131,7 @@ USAGE:
     /* prepare IO request according to io_type */
     for (i = 0, iocbp = iocbs; i < NUM_EVENTS; ++i, ++iocbp) {
         iocbps[i] = &iocbp->iocb;
-	    io_prep_pwrite(&iocbp->iocb, fd, buf, RD_WR_SIZE, io_units[io_flag][i] * RD_WR_SIZE);
+        io_prep_pwrite(&iocbp->iocb, fd, buf, RD_WR_SIZE, io_units[io_flag][i] * RD_WR_SIZE);
         io_set_callback(&iocbp->iocb, aio_callback);
         iocbp->nth_request = i + 1;
     }
