@@ -16,7 +16,7 @@ Dispatch three reverse write IOs to sdb to check the front merging of plug list:
 ~# ./iotc  -d /dev/sdb -r 
 
 ### dispatch interleave IOs
-Dispatch three reverse write IOs to sdb to check the back merging of elevator queue:
+Dispatch three interleave write IOs to sdb to check the back merging of elevator queue:
 ~# ./iotc  -d /dev/sdb -r 
 
 ### test bio merge between process
