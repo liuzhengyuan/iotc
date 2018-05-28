@@ -1,16 +1,11 @@
 #include <stdio.h>
-#include <errno.h>
-#include <libaio.h>
 #include <stdlib.h>
-#include <sys/types.h>
+#include <libaio.h>
 #include <unistd.h>
-#include <stdint.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <inttypes.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
 #include <stdbool.h>
 
 #define NUM_EVENTS  3
@@ -31,22 +26,7 @@ int io_units[IO_TYPE_END][NUM_EVENTS] =
     {2, 0, 1}  /* corresponding to INTERLEAVE_IO */
 };
 
-char *io_opt = "srid:"; /* acceptable option */
-
-struct custom_iocb
-{
-    struct iocb iocb;
-    int nth_request;
-};
-
-void aio_callback(io_context_t ctx, struct iocb *iocb, long res, long res2)
-{
-    struct custom_iocb *iocbp = (struct custom_iocb *)iocb;
-    printf("nth_request: %d, request_type: %s, offset: %lld, length: %lu, res: %ld, res2: %ld\n", 
-            iocbp->nth_request, (iocb->aio_lio_opcode == IO_CMD_PREAD) ? "READ" : "WRITE",
-            iocb->u.c.offset, iocb->u.c.nbytes, res, res2);
-
-}
+char *io_opt = "srid:"; /* acceptable options */
 
 int main(int argc, char *argv[])
 {
@@ -54,9 +34,7 @@ int main(int argc, char *argv[])
     io_context_t ctx;
     struct timespec tms;
     struct io_event events[NUM_EVENTS];
-    struct custom_iocb iocbs[NUM_EVENTS];
-    struct iocb *iocbps[NUM_EVENTS];
-    struct custom_iocb *iocbp;
+    struct iocb iocbs[NUM_EVENTS], *iocbp[NUM_EVENTS];
     int i, r;
     void *buf;
     int io_flag = -1;
@@ -95,13 +73,13 @@ int main(int argc, char *argv[])
             break;
        default: /* '?' */
 USAGE:
-            /*fprintf(stderr, "Usage: %s [-d Device] [-s | -r | -i] \n\n eg: iotc -d /dev/sdb -s \n\n"
+            fprintf(stderr, "Usage: %s [-d Device] [-s | -r | -i] \n\n eg: iotc -d /dev/sdb -s \n\n"
                     "-d specify a block device to submit IOS, device name must follow\n"
                     "-s conflict with -s and -i, submit sequence IOs, such as 0+8, 8+8, 16+8\n"
                     "-r conflict with -s and -i, submit reverse IOs, such as 16+8, 8+8, 0+8\n"
                     "-i conflict with -s and -r, submit interleave IOs, such as 16+8, 0+8, 8+8\n",
                     argv[0]);
-            */return 2;
+            return 2;
         }
     }
 
@@ -129,15 +107,12 @@ USAGE:
     }
 
     /* prepare IO request according to io_type */
-    for (i = 0, iocbp = iocbs; i < NUM_EVENTS; ++i, ++iocbp) {
-        iocbps[i] = &iocbp->iocb;
-        io_prep_pwrite(&iocbp->iocb, fd, buf, RD_WR_SIZE, io_units[io_flag][i] * RD_WR_SIZE);
-        io_set_callback(&iocbp->iocb, aio_callback);
-        iocbp->nth_request = i + 1;
-    }
-	
+    for (i = 0; i < NUM_EVENTS; ++i) {
+        iocbp[i] = iocbs + i;
+        io_prep_pwrite(&iocbs[i], fd, buf, RD_WR_SIZE, io_units[io_flag][i] * RD_WR_SIZE);
+	}
     /* submit IOs using io_submit systemcall */
-    if (io_submit(ctx, NUM_EVENTS, iocbps) != NUM_EVENTS) {
+    if (io_submit(ctx, NUM_EVENTS, iocbp) != NUM_EVENTS) {
         perror("io_submit");
         goto OUT0;
     }
@@ -147,9 +122,8 @@ USAGE:
     tms.tv_nsec = 0;
     r = io_getevents(ctx, 1, NUM_EVENTS, events, &tms);
     if (r > 0) {
-        for (i = 0; i < r; ++i) {
-            ((io_callback_t)(events[i].data))(ctx, events[i].obj, events[i].res, events[i].res2);
-        }
+        for (i = 0; i < r; ++i)
+            printf("request(offset:%lld) had wroten %lu bytes!\n", (events[i].obj)->u.c.offset, (events[i].obj)->u.c.nbytes);
     }
     
 OUT0:
@@ -157,6 +131,5 @@ OUT0:
 OUT1:
     io_destroy(ctx);
     close(fd);
-
     return 0;
 }
