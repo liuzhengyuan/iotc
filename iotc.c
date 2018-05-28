@@ -8,9 +8,10 @@
 #include <sys/stat.h>
 #include <stdbool.h>
 
+/* dispatch 3 4k-size ios using the io_type specified by user */
 #define NUM_EVENTS  3
 #define ALIGN_SIZE  4096
-#define RD_WR_SIZE  4096
+#define WR_SIZE  4096
 
 enum io_type {
     SEQUENCE_IO,
@@ -101,7 +102,7 @@ USAGE:
         goto OUT1;
     }
 
-    if (posix_memalign(&buf, ALIGN_SIZE, RD_WR_SIZE)) {
+    if (posix_memalign(&buf, ALIGN_SIZE, WR_SIZE)) {
         perror("posix_memalign");
         goto OUT0;
     }
@@ -109,7 +110,7 @@ USAGE:
     /* prepare IO request according to io_type */
     for (i = 0; i < NUM_EVENTS; ++i) {
         iocbp[i] = iocbs + i;
-        io_prep_pwrite(&iocbs[i], fd, buf, RD_WR_SIZE, io_units[io_flag][i] * RD_WR_SIZE);
+        io_prep_pwrite(&iocbs[i], fd, buf, WR_SIZE, io_units[io_flag][i] * WR_SIZE);
 	}
     /* submit IOs using io_submit systemcall */
     if (io_submit(ctx, NUM_EVENTS, iocbp) != NUM_EVENTS) {
