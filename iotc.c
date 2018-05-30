@@ -14,9 +14,9 @@
 #define WR_SIZE  4096
 
 enum io_type {
-    SEQUENCE_IO,
-    REVERSE_IO,
-    INTERLEAVE_IO,
+    SEQUENCE_IO,  /* dispatch 3 ios: 0-4k(0+8), 4-8k(8+8),8-12k(16+8) */
+    REVERSE_IO,   /* dispatch 3 ios: 8-12k(16+8), 4-8k(8+8),0-4k(0+8) */
+    INTERLEAVE_IO,/* dispatch 3 ios: 8-12k(16+8), 0-4k(0+8),4-8k(8+8) */
     IO_TYPE_END
 };
 
