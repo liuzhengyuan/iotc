@@ -1,0 +1,22 @@
+  cpu          : usr=29.87%, sys=70.11%, ctx=357, majf=0, minf=137
+  IO depths    : 1=0.1%, 2=0.1%, 4=0.1%, 8=0.1%, 16=0.1%, 32=0.1%, >=64=100.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.1%
+     issued    : total=r=11067923/w=0/d=0, short=r=0/w=0/d=0, drop=r=0/w=0/d=0
+     latency   : target=0, window=0, percentile=100.00%, depth=128
+
+Run status group 0 (all jobs):
+  WRITE: io=42346MB, aggrb=1411.5MB/s, minb=1411.5MB/s, maxb=1411.5MB/s, mint=30001msec, maxt=30001msec
+
+Run status group 1 (all jobs):
+   READ: io=26530MB, aggrb=905484KB/s, minb=905484KB/s, maxb=905484KB/s, mint=30002msec, maxt=30002msec
+
+Run status group 2 (all jobs):
+  WRITE: io=40822MB, aggrb=1360.8MB/s, minb=1360.8MB/s, maxb=1360.8MB/s, mint=30001msec, maxt=30001msec
+
+Run status group 3 (all jobs):
+   READ: io=43234MB, aggrb=1441.9MB/s, minb=1441.9MB/s, maxb=1441.9MB/s, mint=30001msec, maxt=30001msec
+
+Disk stats (read/write):
+  nvme0n1: ios=17831316/21290935, merge=0/0, ticks=4985728/378964, in_queue=5374936, util=99.23%
+
